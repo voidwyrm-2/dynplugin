@@ -6,61 +6,31 @@ import (
 	"reflect"
 )
 
-type Interpreter struct {
-	functions map[string]reflect.Value
-}
+func CallFunction(fnSyb plugin.Symbol, args ...any) {
+	fn := reflect.ValueOf(fnSyb)
 
-func NewInterpreter() *Interpreter {
-	return &Interpreter{functions: make(map[string]reflect.Value)}
-}
-
-// LoadPlugin loads a Go plugin and registers its functions
-func (interp *Interpreter) LoadPlugin(pluginPath string) error {
-	// Load the plugin
-	plug, err := plugin.Open(pluginPath)
-	if err != nil {
-		return err
+	in := make([]reflect.Value, len(args))
+	for i, arg := range args {
+		in[i] = reflect.ValueOf(arg)
 	}
 
-	// Lookup the exported function
-	printFunc, err := plug.Lookup("Print")
-	if err != nil {
-		return err
-	}
-
-	// Register the functions in the interpreter
-	interp.functions["Print"] = reflect.ValueOf(printFunc)
-
-	return nil
+	fn.Call(in)
 }
 
-func (interp *Interpreter) CallFunction(name string, args ...any) {
-	if fn, ok := interp.functions[name]; ok {
-		// Convert arguments to reflect.Values
-		in := make([]reflect.Value, len(args))
-		for i, arg := range args {
-			in[i] = reflect.ValueOf(arg)
-		}
-
-		// Call the function
-		fn.Call(in)
-	} else {
-		fmt.Printf("Error: function %s not found\n", name)
-	}
-}
+const pluginPath = "../dynlib/dynlib.so"
 
 func main() {
-	// Initialize the interpreter
-	interp := NewInterpreter()
-
-	// Load the plugin
-	err := interp.LoadPlugin("../dynlib/dynlib.so")
+	plug, err := plugin.Open(pluginPath)
 	if err != nil {
-		fmt.Println("Error loading plugin:", err)
+		fmt.Println(err.Error())
 		return
 	}
 
-	// Call functions from the plugin
-	interp.CallFunction("Add", 5, 3)       // Outputs: 8
-	interp.CallFunction("Print", "Hello!") // Outputs: Hello!
+	printFunc, err := plug.Lookup("Print")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	CallFunction(printFunc, "Hello!")
 }
